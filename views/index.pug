@@ -1,0 +1,11 @@
+html
+  head
+    title= title
+  body
+    h1 Hello #{user}
+    if isLoggedIn
+      a(href="/logout") Logout
+      br
+      a(href="/profile") Profile
+    else
+      a(href="/login") Login
