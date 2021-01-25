@@ -108,6 +108,49 @@ async function login(user) {
   });
 }
 
+function generateToken() {
+  let alphanum = "abcdefghijklmnopqrstuvwxyz1234567890";
+  let token = "";
+  while (token.length < 32) {
+    let index = Math.floor(Math.random() * alphanum.length);
+    token += alphanum[index];
+  }
+  return token;
+}
+
+/**
+ * @param {BigInteger} userId
+ * @param {String} [ip]
+ */
+async function createToken(userId, ip) {
+  return new Promise((resolve, reject) => {
+    let token = generateToken();
+    let query = `SELECT token FROM userTokens WHERE token=md5('${token}')`;
+    console.log(query+"0");
+    st.connection().query(query, async (err, result) => {
+      if (err) {
+        reject("ERROR");
+      }
+      if (result.length == 0) {
+        let expiry = "TIMESTAMPADD(HOUR, 7, TIMESTAMPADD(DAY, 10, CURDATE()))";
+        query = `insert into userTokens (user_id,token,expiry,ip) values ('${userId}',md5('${token}'),${expiry},'${ip}')`;
+        console.log(query)
+        st.connection().query(query, async (err, result) => {
+          if (err) {
+            reject("ERROR");
+          }
+          if (result) {
+            resolve(token);
+          }
+        });
+      } else {
+        let cT = await createToken(userId, ip);
+        resolve(cT);
+      }
+    });
+  });
+}
+
 app.get("/", function (req, res) {
   res.render("index", {
     title: "Home",
@@ -126,43 +169,57 @@ app.get("/login", function (req, res) {
 
 app.post("/loginPost", async (req, res) => {
   let result = await login(req.body).catch((err) => {
-    res.send("Error Password");
+    res.send("Invalid Credentials");
   });
   if (result.name) {
-    req.session.isLoggedin = true;
-    req.session.loggedUser = result.name;
-    req.session.loggedId = result.id;
-    res.redirect("/");
+    let token = await createToken(result.id, req.connection.remoteAddress);
+    res.send(token);
   }
 });
 
 /**
  * @param {any} userId
  */
-const getUser = async (userId) =>{
-  return new Promise((resolve,reject)=>{
+const getUser = async (userId) => {
+  return new Promise((resolve, reject) => {
     let sql = `SELECT * FROM users WHERE id=${userId}`;
-    st.connection().query(sql,(err,result)=>{
-      if(err){
-        reject(err)
+    st.connection().query(sql, (err, result) => {
+      if (err) {
+        reject(err);
       }
-      if(result.length){
+      if (result.length) {
         resolve(result[0]);
-      }else{
-        reject("No user found")
+      } else {
+        reject("No user found");
       }
-    })
-  })
-}
+    });
+  });
+};
 
-app.get("/profile",async (req,res)=>{
-  if(req.session.isLoggedin){
-    let userData = await getUser(req.session.loggedId).catch((err)=>console.log(err));
-    res.render('profile',{user:userData});
+
+app.get("/profile/me",(req,res)=>{
+  let token = req.headers['authorization'];
+  if(token.trim()!=""){
+  token = token.split(" ")[1];
+  console.log(token);
+  res.send(token);
   }else{
-    res.redirect('/login')
+    res.status(401).send("Invalid token");
   }
 })
+
+
+
+app.get("/profile", async (req, res) => {
+  if (req.session.isLoggedin) {
+    let userData = await getUser(req.session.loggedId).catch((err) =>
+      console.log(err)
+    );
+    res.render("profile", { user: userData });
+  } else {
+    res.redirect("/login");
+  }
+});
 
 app.get("/logout", (req, res) => {
   req.session.isLoggedin = false;
