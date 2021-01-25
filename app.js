@@ -126,7 +126,7 @@ async function createToken(userId, ip) {
   return new Promise((resolve, reject) => {
     let token = generateToken();
     let query = `SELECT token FROM userTokens WHERE token=md5('${token}')`;
-    console.log(query+"0");
+    console.log(query + "0");
     st.connection().query(query, async (err, result) => {
       if (err) {
         reject("ERROR");
@@ -134,7 +134,7 @@ async function createToken(userId, ip) {
       if (result.length == 0) {
         let expiry = "TIMESTAMPADD(HOUR, 7, TIMESTAMPADD(DAY, 10, CURDATE()))";
         query = `insert into userTokens (user_id,token,expiry,ip) values ('${userId}',md5('${token}'),${expiry},'${ip}')`;
-        console.log(query)
+        console.log(query);
         st.connection().query(query, async (err, result) => {
           if (err) {
             reject("ERROR");
@@ -151,14 +151,13 @@ async function createToken(userId, ip) {
   });
 }
 
-
 /**
  * @param {String} token
  */
 async function verifyToken(token) {
   return new Promise((resolve, reject) => {
     let query = `SELECT * FROM userTokens WHERE token=md5('${token}')`;
-    console.log(query+"0");
+    console.log(query + "0");
     st.connection().query(query, async (err, result) => {
       if (err) {
         reject("ERROR1");
@@ -174,7 +173,6 @@ async function verifyToken(token) {
     });
   });
 }
-
 
 app.get("/", function (req, res) {
   res.render("index", {
@@ -221,21 +219,18 @@ const getUser = async (userId) => {
   });
 };
 
-
-app.get("/profile/me",async (req,res)=>{
-  let token = req.headers['authorization'];
-  if(token.trim()!=""){
-  token = token.split(" ")[1];
-   let userId = await verifyToken(token).catch((err)=>{
-     res.status(401).send(err);
-   });
-  res.send("userId "+ userId);
-  }else{
+app.get("/profile/me", async (req, res) => {
+  let token = req.headers["authorization"];
+  if (token.trim() != "") {
+    token = token.split(" ")[1];
+    let userId = await verifyToken(token).catch((err) => {
+      res.status(401).send(err);
+    });
+    res.send("userId " + userId);
+  } else {
     res.status(401).send("Invalid token");
   }
-})
-
-
+});
 
 app.get("/profile", async (req, res) => {
   if (req.session.isLoggedin) {
