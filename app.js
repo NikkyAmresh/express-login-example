@@ -151,6 +151,31 @@ async function createToken(userId, ip) {
   });
 }
 
+
+/**
+ * @param {String} token
+ */
+async function verifyToken(token) {
+  return new Promise((resolve, reject) => {
+    let query = `SELECT * FROM userTokens WHERE token=md5('${token}')`;
+    console.log(query+"0");
+    st.connection().query(query, async (err, result) => {
+      if (err) {
+        reject("ERROR1");
+      }
+      if (result.length == 0) {
+        reject("ERROR2");
+        if (err) {
+          reject("ERROR3");
+        }
+      } else {
+        resolve(result[0].user_id);
+      }
+    });
+  });
+}
+
+
 app.get("/", function (req, res) {
   res.render("index", {
     title: "Home",
@@ -197,12 +222,14 @@ const getUser = async (userId) => {
 };
 
 
-app.get("/profile/me",(req,res)=>{
+app.get("/profile/me",async (req,res)=>{
   let token = req.headers['authorization'];
   if(token.trim()!=""){
   token = token.split(" ")[1];
-  console.log(token);
-  res.send(token);
+   let userId = await verifyToken(token).catch((err)=>{
+     res.status(401).send(err);
+   });
+  res.send("userId "+ userId);
   }else{
     res.status(401).send("Invalid token");
   }
